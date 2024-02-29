@@ -1,1 +1,1 @@
-# Quamtom_Annealing
+# Quantum_Annealing
