@@ -194,7 +194,7 @@ class TxHistory():
             'dist_spend_1st_moment', 'dist_spend_2nd_moment', 'dist_spend_3rd_moment', 'dist_spend_4th_moment',
             'dist_receive_1st_moment', 'dist_receive_2nd_moment', 'dist_receive_3rd_moment', 'dist_receive_4th_moment',
             'dist_payback_1st_moment', 'dist_payback_2nd_moment', 'dist_payback_3rd_moment', 'dist_payback_4th_moment',
-            'n_multi_in', 'n_multi_out', 'n_multi_in_out'
+            'tx_input', 'tx_output','n_multi_in', 'n_multi_out', 'n_multi_in_out'
         ])
     
     def summarize(self, max_num=None):
@@ -226,6 +226,8 @@ class TxHistory():
         dist_spend = []
         dist_receive = []
         dist_payback = []
+        tx_output = 0
+        tx_input = 0
         n_multi_in = 0  
         n_multi_out = 0
         n_multi_in_out = 0
@@ -268,10 +270,14 @@ class TxHistory():
 
             # Calculate the number of transactions with multiple inputs and outputs
             if isinstance(tx['output_n'], list) and len(tx['output_n']) > 0:
-                n_multi_out = tx['output_n'][0]
+                tx_output = tx['output_n'][0]
+                if tx_output > 1:
+                    n_multi_out = tx_output
             if isinstance(tx['input_n'], list) and len(tx['input_n']) > 0:
-                n_multi_in = tx['input_n'][0]
-            if n_multi_out > 0 and n_multi_in > 0:
+                tx_input = tx['input_n'][0]
+                if tx_input > 1:
+                    n_multi_in = tx_input
+            if tx_input > 1 and tx_output > 1:
                 n_multi_in_out = 1
 
 
@@ -425,6 +431,8 @@ class TxHistory():
             np.var(dist_payback),
             scipy.stats.skew(dist_payback),
             scipy.stats.kurtosis(dist_payback, fisher=False),
+            tx_input,
+            tx_output,
             n_multi_in,
             n_multi_out,
             n_multi_in_out
