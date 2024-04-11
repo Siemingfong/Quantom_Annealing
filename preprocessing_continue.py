@@ -11,6 +11,7 @@ import json
 import os
 import pandas as pd
 import shutil
+import glob
 from tqdm import tqdm
 
 from data_loader import TxLoader
@@ -29,17 +30,11 @@ def parse(args=None):
 args = parse([]) if run_from_ipython() else parse()
 print(args)
 
-# Create a folder for generated data files
-
+# 設定數據和輸出路徑
 data_path = args.data
 out_path = args.out
-assert os.path.exists(data_path), 'Data path does not exist: ' + data_path
-if os.path.exists(out_path):
-    shutil.rmtree(out_path)
-# os.mkdir(out_path)
-print('Generated files will be in the folder "{:s}"'.format(out_path))
-# Load the Bitcoin dataset
 
+# Load the Bitcoin dataset
 dataset = pd.read_csv(os.path.join(data_path, 'dataset_mymerge.csv'))
 print('# of addresses:', len(dataset['address']))
 dataset.head(5)
@@ -57,8 +52,8 @@ print('===> class2label.json')
 print(class2label)
 print('===> label2class.json')
 print(label2class)
-# Your existing code
 
+# 加載交易資料
 loader = TxLoader(root=os.path.join(data_path, 'transactions'), max_size=100000)
 counter = TxNCounter(loader)
 success, failed = 0, 0
@@ -66,14 +61,37 @@ print(loader.index)
 
 # Set the batch size for splitting files
 batch_size = 100000
-file_counter = 1
+# file_counter = 1
 tx_in_out_sizes = {}
-
 keys = list(loader.index.keys())  # Get the keys from the loader index
 
-index = 1  # Starting index
+# 確定最新的 tx_in_out_sizes 檔案
+file_pattern = os.path.join(out_path, "tx_in_out_sizes*.json")
+file_list = sorted(glob.glob(file_pattern), key=lambda x: int(x.split('sizes')[-1].split('.json')[0]))
 
-for tx_hash in tqdm(keys):
+if file_list:
+    # 讀取最新的文件
+    last_file_path = file_list[-1]
+    with open(last_file_path, 'r') as f:
+        last_data = json.load(f)
+
+    # 獲取最後一個處理過的交易哈希
+    last_tx_hash = list(last_data.keys())[-1]
+
+    # 在 keys 列表中找到這個交易哈希的位置
+    last_index = keys.index(last_tx_hash) + 1
+
+    # 確定檔案計數器的起始值
+    file_counter = int(last_file_path.split('sizes')[-1].split('.json')[0]) + 1
+
+else:
+    # 如果沒有找到任何文件，從頭開始
+    last_index = 0
+    file_counter = 1
+
+# 從最後一個已處理的交易開始繼續處理
+index = last_index + 1  # 從最後一個已處理的交易後一個開始
+for tx_hash in tqdm(keys[last_index:]):
     in_size, out_size = counter.get(tx_hash)
     
     # Check if in_size and out_size are retrieved successfully
@@ -85,7 +103,7 @@ for tx_hash in tqdm(keys):
         tx_in_out_sizes[tx_hash] = [in_size, out_size]
 
     # Check if it's time to write to a new file
-    if index % batch_size == 0 or index == len(keys):  # Write at batch_size intervals or at the end
+    if index % batch_size == 0 or index == len(keys):
         output_file_path = os.path.join(out_path, f"tx_in_out_sizes{file_counter}.json")
         with open(output_file_path, 'w') as outfile:
             json.dump(tx_in_out_sizes, outfile)
