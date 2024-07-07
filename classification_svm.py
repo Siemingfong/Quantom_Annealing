@@ -10,7 +10,8 @@ import pickle
 import sys
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
 from sklearn.utils import class_weight
 from sklearn.metrics import roc_auc_score  # Add this import statement at the beginning
 
@@ -29,7 +30,7 @@ if run_from_ipython():
     sns.set_context('notebook')  # 'notebook', 'paper', 'talk', 'poster'
     # sns.set_style('dark')  # None, 'darkgrid', 'whitegrid', 'dark', 'white', 'ticks'
     
-    # Parse Arguments
+# Parse Arguments
 
 def parse(args=None):
     parser = argparse.ArgumentParser(
@@ -80,13 +81,25 @@ print('===> Data Scheme:   ', scheme)
 print('===> Cost Sensitive:', cost_sensitive)
 print('===> N Threads:     ', n_jobs)
 
+# 定義一個函數來加載和抽樣數據
+def load_sample(file_path, sample_fraction=0.1):
+    chunks = []
+    for chunk in pd.read_csv(file_path, chunksize=100000):
+        chunks.append(chunk.sample(frac=sample_fraction))
+    return pd.concat(chunks)
+
 # Load transaction history summarization data
+
+# 設定樣本比例
+sample_fraction = 0.1  # 取 10% 的數據樣本
 
 # data_file = 'data.{}.csv'.format(scheme)
 data_file = 'nanzero_normalization_data.{}.csv'.format(scheme)
 # data_file = 'quantum_qubo_data.{}.csv'.format(scheme)
 # data_file = 'all_selected_features_quantum_qubo_data.{}.csv'.format(scheme)
-data = pd.read_csv(os.path.join(output_path, data_file))
+file_path = os.path.join(output_path, data_file)
+data = load_sample(file_path, sample_fraction)
+# data = pd.read_csv(os.path.join(output_path, data_file))
 print (data)
 if run_from_ipython():
     data.head(4)
