@@ -91,7 +91,7 @@ def load_sample(file_path, sample_fraction=0.1):
 # Load transaction history summarization data
 
 # 設定樣本比例
-sample_fraction = 0.1  # 取 10% 的數據樣本
+sample_fraction = 0.04  # 取 4% 的數據樣本
 
 # data_file = 'data.{}.csv'.format(scheme)
 data_file = 'nanzero_normalization_data.{}.csv'.format(scheme)
@@ -294,11 +294,22 @@ for train_idx, valid_idx in tqdm(skf.split(X, y)):
     # valid_auc = roc_auc_score(y_valid, y_valid_prob, multi_class="ovr", average="macro")
     # valid_auc_list.append(valid_auc)
     
-# Print the average training and validation times
-print(f'Average training time: {sum(train_time_list) / len(train_time_list):.2f} seconds')
-print(f'Average validation time: {sum(valid_time_list) / len(valid_time_list):.2f} seconds')
+# Print the average and total training and validation times
+average_train_time = sum(train_time_list) / len(train_time_list)
+average_valid_time = sum(valid_time_list) / len(valid_time_list)
+total_train_time = sum(train_time_list)
+total_valid_time = sum(valid_time_list)
+
+print(f'Average training time: {average_train_time:.2f} seconds')
+print(f'Average validation time: {average_valid_time:.2f} seconds')
+print(f'Total training time: {total_train_time:.2f} seconds')
+print(f'Total validation time: {total_valid_time:.2f} seconds')
     
-    # Save training results
+# Create the result path if it does not exist
+if not os.path.exists(result_path):
+    os.makedirs(result_path)
+
+# Save training results
 
 experiment_name = os.path.join(result_path, '{}.{}.{}'.format(model, feature_type, scheme))
 if not cost_sensitive:
@@ -313,7 +324,7 @@ results = {
 pickle.dump(results, open(experiment_name + '.pkl', 'wb'))
 
 # Save model
-model_save_path = os.path.join(result_path, '{}_model.pkl'.format(experiment_name))
+model_save_path = '{}_model.pkl'.format(experiment_name)
 with open(model_save_path, 'wb') as model_file:
     pickle.dump(model, model_file)
 
