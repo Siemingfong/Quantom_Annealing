@@ -8,6 +8,8 @@ import os
 import pandas as pd
 import pickle
 import sys
+import matplotlib.pyplot as plt
+
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import MinMaxScaler
