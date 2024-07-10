@@ -321,7 +321,9 @@ results = {
     'valid_cm_list': valid_cm_list,
     'train_rp_list': train_rp_list,
     'valid_rp_list': valid_rp_list,
-    'fi_list': fi_list
+    'fi_list': fi_list,
+    'train_auc_list': train_auc_list,
+    'valid_auc_list': valid_auc_list
 }
 pickle.dump(results, open(experiment_name + '.pkl', 'wb'))
 
