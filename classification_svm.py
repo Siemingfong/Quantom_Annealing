@@ -15,7 +15,6 @@ from sklearn.metrics import classification_report
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
 from sklearn.utils import class_weight
-from sklearn.metrics import roc_auc_score  # Add this import statement at the beginning
 
 from tqdm import tqdm
 
@@ -93,7 +92,7 @@ def load_sample(file_path, sample_fraction=0.1):
 # Load transaction history summarization data
 
 # 設定樣本比例
-sample_fraction = 0.04  # 取 4% 的數據樣本
+sample_fraction = 0.1  # 取 10% 的數據樣本
 
 # data_file = 'data.{}.csv'.format(scheme)
 data_file = 'nanzero_normalization_data.{}.csv'.format(scheme)
@@ -197,8 +196,11 @@ os.makedirs(result_path, exist_ok=True)
 
 # Training procedure
 import time
-
 from sklearn.preprocessing import MinMaxScaler
+# from sklearn.model_selection import StratifiedKFold
+# from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, auc
+# from sklearn.utils import class_weight
+# from tqdm import tqdm
 
 train_cm_list = []
 train_rp_list = []
@@ -224,40 +226,34 @@ print(clf_params)
 # Declare K-Fold
 skf = StratifiedKFold(n_splits=n_folds, shuffle=True)
 
-# Normalize data
-# Note that decision tree sbased algorithms need no data normalization
+# # Normalize data
 # if model in ['lr', 'p', 'svm']:
-    
-#     # 初始化MinMaxScaler
 #     scaler = MinMaxScaler()
-    
 #     print('Normalizing data...')
-#     # X = np.nan_to_num(X / np.abs(X).max(axis=0))
-#     # 擬合數據並轉換
 #     X = scaler.fit_transform(X)
+
+# Declare the classifier
+clf = get_model(model, clf_params)
+
+# If the model is SVM, ensure probability=True
+if model == 'svm':
+    clf.set_params(probability=True)
 
 # Start cross validation
 for train_idx, valid_idx in tqdm(skf.split(X, y)):
-    # print(train_idx[:100], valid_idx[:10])
-    
-    # Retrieve splitted training set and validating set
     X_train, X_valid = X[train_idx], X[valid_idx]
     y_train, y_valid = y[train_idx], y[valid_idx]
-    
-    # Calculate sample weight (whether to apply cost sensitive learning)
+
     sample_weight = np.ones((len(y_train), ), dtype='float64')
     if cost_sensitive:
         sample_weight = class_weight.compute_sample_weight('balanced', y_train)
-    
-    # Declare the classifier and train it on the training set
-    clf = get_model(model, clf_params)
 
     # Train the classifier and record the time
     start_time = time.time()
     clf.fit(X_train, y_train, sample_weight=sample_weight)
     train_time = time.time() - start_time
     train_time_list.append(train_time)
-    
+
     # Evaluate on the training set
     y_pred = clf.predict(X_train)
     cm = confusion_matrix(y_train, y_pred)
@@ -265,19 +261,19 @@ for train_idx, valid_idx in tqdm(skf.split(X, y)):
     train_cm_list.append(cm)
     rp = classification_report(y_train, y_pred, target_names=class_names, output_dict=True)
     train_rp_list.append(rp)
-    
+
     # Evaluate on the validating set and record the time
     start_time = time.time()
     y_pred = clf.predict(X_valid)
     valid_time = time.time() - start_time
     valid_time_list.append(valid_time)
-    
+
     cm = confusion_matrix(y_valid, y_pred)
     cm = cm / cm.sum(axis=1, keepdims=True)
     valid_cm_list.append(cm)
     rp = classification_report(y_valid, y_pred, target_names=class_names, output_dict=True)
     valid_rp_list.append(rp)
-    
+
     # Get the feature importances according to the trained model
     if model in ['rf', 'xgb', 'lgb']:
         if 'booster' in clf_params and clf_params['booster'] == 'dart':
@@ -285,17 +281,17 @@ for train_idx, valid_idx in tqdm(skf.split(X, y)):
         else:
             fi = clf.feature_importances_
             fi_list.append(fi)
-            
-    # # Calculate AUC for the training set
-    # y_train_prob = clf.predict_proba(X_train)
-    # train_auc = roc_auc_score(y_train, y_train_prob, multi_class="ovr", average="macro")
-    # train_auc_list.append(train_auc)
 
-    # # Calculate AUC for the validation set
-    # y_valid_prob = clf.predict_proba(X_valid)
-    # valid_auc = roc_auc_score(y_valid, y_valid_prob, multi_class="ovr", average="macro")
-    # valid_auc_list.append(valid_auc)
-    
+    # Calculate AUC for the training set
+    y_train_prob = clf.predict_proba(X_train)
+    train_auc = roc_auc_score(y_train, y_train_prob, multi_class="ovr", average="macro")
+    train_auc_list.append(train_auc)
+
+    # Calculate AUC for the validation set
+    y_valid_prob = clf.predict_proba(X_valid)
+    valid_auc = roc_auc_score(y_valid, y_valid_prob, multi_class="ovr", average="macro")
+    valid_auc_list.append(valid_auc)
+
 # Print the average and total training and validation times
 average_train_time = sum(train_time_list) / len(train_time_list)
 average_valid_time = sum(valid_time_list) / len(valid_time_list)
@@ -306,7 +302,7 @@ print(f'Average training time: {average_train_time:.2f} seconds')
 print(f'Average validation time: {average_valid_time:.2f} seconds')
 print(f'Total training time: {total_train_time:.2f} seconds')
 print(f'Total validation time: {total_valid_time:.2f} seconds')
-    
+
 # Create the result path if it does not exist
 if not os.path.exists(result_path):
     os.makedirs(result_path)
@@ -323,7 +319,9 @@ results = {
     'valid_rp_list': valid_rp_list,
     'fi_list': fi_list,
     'train_auc_list': train_auc_list,
-    'valid_auc_list': valid_auc_list
+    'valid_auc_list': valid_auc_list,
+    'y_valid': y_valid,  # 添加真實標籤
+    'y_valid_prob': y_valid_prob  # 添加預測概率
 }
 pickle.dump(results, open(experiment_name + '.pkl', 'wb'))
 
