@@ -5,7 +5,7 @@ from dwave.system import DWaveSampler, EmbeddingComposite
 from dwave.embedding.chain_strength import uniform_torque_compensation
 from dwave.embedding.chain_breaks import majority_vote
 import warnings
-from scipy.stats import ConstantInputWarning  # 新增的導入
+from scipy.stats import ConstantInputWarning
 
 class FeatureSelection(object):
     def __init__(self, num_features, dependence_coefficients, influence_coefficients):
@@ -40,8 +40,8 @@ for i in range(0, 6):
     # num_rows_to_keep = int(len(df) * 0.000001)  # 你可以調整這個比例
     # df = df.iloc[:num_rows_to_keep, :]
 
-    # 固定保留前 100 行
-    df = df.iloc[:100, :]  # 固定保留前 100 行
+    # # 固定保留前 1000000 行
+    # df = df.iloc[:1000000, :]  # 固定保留前 1000000 行
 
     # 偵測資料中是否有空行或空列
     if df.isnull().sum().sum() > 0:
