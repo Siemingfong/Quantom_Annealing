@@ -1,15 +1,11 @@
 import numpy as np
-from pyqubo import Array
-import neal
-import matplotlib.pyplot as plt
-import requests
-import seaborn as sns
-
 import pandas as pd
 import dimod
 from dwave.system import DWaveSampler, EmbeddingComposite
 from dwave.embedding.chain_strength import uniform_torque_compensation
 from dwave.embedding.chain_breaks import majority_vote
+import warnings
+from scipy.stats import ConstantInputWarning  # 新增的導入
 
 class FeatureSelection(object):
     def __init__(self, num_features, dependence_coefficients, influence_coefficients):
@@ -27,7 +23,7 @@ class FeatureSelection(object):
     def compile(self):
         # Combine linear and quadratic terms
         return dimod.BinaryQuadraticModel(self.qubo_linear, self.qubo_quadratic, 0.0, vartype=dimod.BINARY)
-    
+
 # 初始化一個集合來儲存所有選中的特徵
 all_selected_features = set()
 
@@ -40,19 +36,45 @@ for i in range(0, 6):
     file_path = f'../data_p/quantum_data.address_class{i}.csv'
     df = pd.read_csv(file_path)
 
-    # Extracting each column as an array
-    columns = df.columns
-    features = df[columns[:-1]]  # All columns except the last one
-    result = df[columns[-1]]    # The last column
+    # # 保留前 1% 的資料行數
+    # num_rows_to_keep = int(len(df) * 0.000001)  # 你可以調整這個比例
+    # df = df.iloc[:num_rows_to_keep, :]
+
+    # 固定保留前 100 行
+    df = df.iloc[:100, :]  # 固定保留前 100 行
+
+    # 偵測資料中是否有空行或空列
+    if df.isnull().sum().sum() > 0:
+        print(f"Class {i}: Detected empty data, handling missing values...")
+        # 選擇處理方式，如刪除含有空值的行或列
+        df = df.dropna(axis=0, how='any')  # 刪除含有空值的行 (也可以選擇 axis=1 刪除列)
+
+    # 過濾掉所有常數列
+    features = df.iloc[:, :-1]
+    result = df.iloc[:, -1]
+    features = features.loc[:, (features != features.iloc[0]).any()]  # 只保留變化的列
+
+    # 提取列名
+    columns = features.columns
     n_features = features.shape[1]
 
     # Calculate the correlation matrix for features
-    feature_correlation = features.corr(method='spearman')
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=ConstantInputWarning)
+        feature_correlation = features.corr(method='spearman')
 
     # Calculate the correlation of each feature with the result
     result_correlation = features.apply(lambda x: x.corr(result, method='spearman'))
 
+    # 在進行量子運算之前，使用過濾後的資料
     feature_qubo = FeatureSelection(n_features, feature_correlation.values, result_correlation.values)
+
+    # 檢查 `qubo_quadratic` 的長度
+    expected_length = n_features * (n_features - 1) // 2  # 理論上的二次項長度
+    if len(feature_qubo.qubo_quadratic) != expected_length:
+        print(f"Unexpected quadratic length: {len(feature_qubo.qubo_quadratic)}, expected: {expected_length}")
+        continue  # 如果不匹配，跳過這個樣本
+
     bqm = feature_qubo.compile()
 
     # 使用 D-Wave 量子計算機來解 QUBO 問題
@@ -63,10 +85,7 @@ for i in range(0, 6):
     # Print results
     print("All energies:", response.record['energy'])
 
-    # print("Sample:", response.info, "Energy:", response.energy)
-
     # Find the best sample (modify this as per your criteria)
-    # For simplicity, we're taking the first sample as an example
     best_sample = list(response.first.sample.items())
 
     # Identify selected features
@@ -74,7 +93,7 @@ for i in range(0, 6):
 
     # Filter the DataFrame to keep only the selected columns
     filtered_df = df.iloc[:, selected_features]
-    
+
     # 將本次迭代選中的特徵添加到集合中
     all_selected_features.update(selected_features)
     
