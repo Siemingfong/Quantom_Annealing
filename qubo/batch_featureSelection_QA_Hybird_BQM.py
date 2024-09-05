@@ -109,7 +109,7 @@ for i in range(0, 6):
     filtered_df = pd.concat([filtered_df, last_column], axis=1)
 
     # Save the filtered DataFrame to a new CSV file
-    filtered_df.to_csv(f'../data_p/QA_CQM_data.address_class{i}.csv', index=False)
+    filtered_df.to_csv(f'../data_p/QA_BQM_data.address_class{i}.csv', index=False)
 
 # Print non-duplicate selected features from all iterations
 print("Combined Selected Features (No Duplicates):", sorted(all_selected_features))
